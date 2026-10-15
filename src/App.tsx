@@ -71,7 +71,7 @@ export default function App() {
             current.render(account)
           ) : (
             <div className="tile-grid">
-              {tabs.map((t) => (
+              {tabs.filter((t) => !t.adminOnly || family.role === 'admin').map((t) => (
                 <button key={t.id} className="tile" style={{ background: t.color }} onClick={() => setOpenId(t.id)}>
                   <span className="tile-icon" aria-hidden>{t.icon}</span>
                   {t.title}

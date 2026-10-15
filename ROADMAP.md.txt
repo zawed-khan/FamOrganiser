@@ -1,4 +1,4 @@
-# Family Manager — Roadmap (updated 16 Oct 2026)
+# Family Manager — Roadmap (updated 17 Oct 2026)
 
 ## Context
 "Family Manager" is a free, installable PWA with independent tabs (mini-apps) for a family's money, documents, places, study and more. Admin-controlled access, offline use, voice input and AI help (quiz creation first). Built for non-technical users, used mainly **on a phone, one-handed**: compact, icon-led, colourful. Text size is a setting (Small by default, Normal, Large). Guided mode and reminders later. Android phones + Windows laptops, English only. 20+ users scaling to hundreds, multi-family (owner approves each family; owner is super-admin).
@@ -38,6 +38,7 @@ Done:
 - **Follow-up (15 Oct):** the app shows each person's **name** instead of their email (name field on sign-up; tap 👤 name in the header to change it). Every expense row has its own 🗑 delete button (with a confirmation) as well as the one in the detail screen. Admin / full access can delete any entry; others can delete their own.
 - **Login by name (built 15 Oct):** `0004_login_by_name.sql` adds a unique login name to every profile (existing people are filled in from their name), `login_email()` / `username_available()` for the sign-in and sign-up screens, and a new-account hook that takes the name from sign-up. Sign-in and sign-up screens ask for name + password; 👤 name in the header opens a sheet to change the name and the login name. 18 more SQL checks (run after `access.sql`, so the existing-people step is tested) and 43 browser checks against a mock backend pass. **Not tried on real Supabase yet** (in particular whether it accepts the `@example.com` placeholder address).
 - **Passwords and sign-in hints (16 Oct):** 👤 sheet has **Change password** (type it twice, 8+ characters). The sign-in screen tells people with an older account to type their old email once; the sign-up screen warns not to create a second account. (Cause: the owner created a second, empty account because the old account had no matching name yet; it sat in "Waiting for approval".)
+- **Family screen (built 17 Oct, admin only):** a 👨‍👩‍👧 Family tile on the home screen. The admin adds a person by typing their **login name** (they sign up first with a name and password), picks a role (adult / teen / child / guest) and relation, then chooses per tab none / view / edit / full. Role can be changed and a person removed (their access goes with them). Someone who made an empty family of their own by mistake (only them, no expenses) is moved into the admin's family; a family that already has expenses is never deleted. `0005_family_members.sql` + 18 more SQL checks (`tests/members.sql`); 59 browser checks against a mock backend. **Not tried on real Supabase.**
 - `supabase/migrations/0002_expenses_mobile.sql` (categories, budgets, repeating, `seed_expense_categories`) with 19 more SQL access checks (36 in total pass on plain Postgres). `0003_receipts_storage.sql` (private `receipts` bucket and rules) was checked only against a stand-in for Supabase Storage.
 - The new screens were driven end to end in a headless phone-sized browser against a **mock** backend (29 checks: add, offline add and sync, new category/sub-category, receipt upload, edit, delete, search, periods, reports, budgets, rename, CSV, text size). **Not yet tried on a real phone or a real Supabase project.**
 
@@ -45,7 +46,7 @@ Done:
 1. Create a free Supabase project; copy Project URL and anon (public) key. Never share the `service_role` key or DB password.
 2. Run `supabase/migrations/0001_core.sql` in the Supabase SQL Editor.
 3. Authentication > Email: switch off "Confirm email" (free built-in email is likely rate-limited; verify in docs).
-2b. Then run `supabase/migrations/0002_expenses_mobile.sql`, `0003_receipts_storage.sql` and `0004_login_by_name.sql` the same way, in that order (run 0004 **before** the app update that uses it goes live). If 0003 complains about the bucket, create a **private** bucket named `receipts` in Storage and re-run the policy part.
+2b. Then run `supabase/migrations/0002_expenses_mobile.sql`, `0003_receipts_storage.sql`, `0004_login_by_name.sql` and `0005_family_members.sql` the same way, in that order (run 0004 **before** the app update that uses it goes live). If 0003 complains about the bucket, create a **private** bucket named `receipts` in Storage and re-run the policy part.
 4. Put the URL and key in `.env.local` (see `.env.example`); never commit it.
 5. Create the owner account in the app, then make it super-admin with one SQL line: `update public.profiles set is_super_admin = true where email = '<owner email>';`
 6. Confirm the three free-tier choices (keep-alive, large PDFs via links, backups).
@@ -53,7 +54,7 @@ Done:
 ## Next build steps
 1. **Expenses (only this for now):** voice input next (add an expense by speaking; free browser speech recognition, English), then polish from real phone testing. Later ideas: read the amount off a receipt photo (needs free-tier AI, key kept server-side), exchange rate shared by the whole family, add categories while offline, dark mode.
 2. Parked until Expenses is finished: Documents tab (expiry reminders) and Locations tab (map link, directions).
-3. Admin screens: add members, set per-tab access, access requests, activity log view, Passwords PIN reset.
+3. Admin screens: ~~add members, set per-tab access~~ (done, see Family screen); still to do: access requests, activity log view, Passwords PIN reset.
 4. Hosting for the PWA (free static host; to be chosen).
 5. Later: Study tab + AI quiz generation (free-tier AI, key kept server-side), Passwords, Work to do, Medical (due end of 3rd week of Oct), emergency access, PIN/fingerprint, optional phone OTP.
 
