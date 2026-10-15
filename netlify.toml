@@ -4,3 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Server code that creates family members' logins (needs the secret SUPABASE_SERVICE_ROLE_KEY in Netlify)
+[functions]
+  directory = "netlify/functions"

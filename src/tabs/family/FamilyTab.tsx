@@ -30,10 +30,14 @@ export default function FamilyTab({ account }: { account: Account }) {
   const [loaded, setLoaded] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const [login, setLogin] = useState('')
+  const [name, setName] = useState('')
+  const [pin, setPin] = useState('')
   const [role, setRole] = useState('adult')
   const [relation, setRelation] = useState('')
   const [busy, setBusy] = useState(false)
+  const [login, setLogin] = useState('') // for someone who already has an account
+  const [resetFor, setResetFor] = useState<string | null>(null)
+  const [newPin, setNewPin] = useState('')
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return null
@@ -63,6 +67,43 @@ export default function FamilyTab({ account }: { account: Account }) {
   }, [fetchAll, apply])
 
   if (family.role !== 'admin') return <p className="hint">🔒 Only the family admin can use this.</p>
+
+  /** Asks the family server (netlify/functions/members.mjs) to create a login or reset a PIN. */
+  async function callServer(body: Record<string, string>) {
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${account.session!.access_token}` },
+        body: JSON.stringify({ family_id: family.id, ...body }),
+      })
+      const out = await res.json().catch(() => null)
+      if (res.ok) return { ok: true as const, out }
+      const fallback = res.status === 404 ? 'The family server is not set up yet. The owner must finish the Netlify set-up.' : 'Something went wrong. Please try again.'
+      return { ok: false as const, text: (out?.error as string | undefined) ?? fallback }
+    } catch {
+      return { ok: false as const, text: 'No internet connection.' }
+    }
+  }
+
+  async function createPerson(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setMessage(null)
+    const r = await callServer({ action: 'create', name, pin, role, relation })
+    setBusy(false)
+    if (!r.ok) { setMessage({ ok: false, text: r.text }); return }
+    setMessage({ ok: true, text: `✔ ${r.out.display_name} added. They sign in with: name "${r.out.login_name}" and PIN ${pin}. Now choose what they can use below.` })
+    setName(''); setPin(''); setRelation('')
+    await reload()
+  }
+
+  async function resetPin(userId: string) {
+    const who = people[userId]?.display_name || 'this person'
+    const r = await callServer({ action: 'reset_pin', user_id: userId, pin: newPin })
+    if (!r.ok) { setMessage({ ok: false, text: r.text }); return }
+    setMessage({ ok: true, text: `✔ New PIN for ${who}: ${newPin}` })
+    setResetFor(null); setNewPin('')
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault()
@@ -108,19 +149,28 @@ export default function FamilyTab({ account }: { account: Account }) {
     <>
       <section className="card">
         <h3>➕ <small>Add a person</small></h3>
-        <form className="form" onSubmit={add}>
-          <input value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Their login name" aria-label="Their login name"
-            autoCapitalize="none" autoComplete="off" required />
+        <form className="form" onSubmit={createPerson}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Their name" aria-label="Their name" maxLength={40} autoComplete="off" required />
+          <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="PIN (4 digits)" aria-label="PIN"
+            inputMode="numeric" maxLength={4} autoComplete="off" required />
           <div className="row2">
             <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
             <input value={relation} onChange={(e) => setRelation(e.target.value)} placeholder="Wife, Son…" aria-label="Relation" maxLength={30} />
           </div>
-          <small className="hint">They sign up first with a name and password. The login name is shown on their sign-up screen.</small>
+          <small className="hint">Tell them their name and PIN. They just open the app and sign in.</small>
           {message && <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'toast' : 'notice'}>{message.text}</p>}
-          <button type="submit" disabled={busy || !login.trim()}>{busy ? '…' : '➕ Add'}</button>
+          <button type="submit" disabled={busy || !name.trim() || pin.length !== 4}>{busy ? '…' : '➕ Add'}</button>
         </form>
+        <details className="existing">
+          <summary>Already has an account?</summary>
+          <form className="form" onSubmit={add}>
+            <input value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Their login name" aria-label="Their login name"
+              autoCapitalize="none" autoComplete="off" required />
+            <button type="submit" className="secondary" disabled={busy || !login.trim()}>{busy ? '…' : '➕ Add them'}</button>
+          </form>
+        </details>
       </section>
 
       <h3>👨‍👩‍👧 <small>{family.name}</small></h3>
@@ -151,6 +201,15 @@ export default function FamilyTab({ account }: { account: Account }) {
                     {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                 </label>
+                {resetFor === m.user_id ? (
+                  <div className="row2 reset">
+                    <input value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="New PIN"
+                      aria-label={`New PIN for ${p?.display_name ?? 'person'}`} inputMode="numeric" maxLength={4} autoComplete="off" autoFocus />
+                    <button disabled={newPin.length !== 4} onClick={() => resetPin(m.user_id)} aria-label="Save new PIN">✔ Save PIN</button>
+                  </div>
+                ) : (
+                  <button className="secondary reset-btn" onClick={() => { setResetFor(m.user_id); setNewPin('') }}>🔑 New PIN</button>
+                )}
                 {usable.map((t) => (
                   <label key={t.id} className="access-row">
                     <span>{t.icon} {t.title}</span>

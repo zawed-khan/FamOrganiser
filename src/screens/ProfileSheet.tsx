@@ -10,10 +10,10 @@ export default function ProfileSheet({ account, onClose }: { account: Account; o
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const [password, setPassword] = useState('')
+  const [pin, setPin] = useState('')
   const [again, setAgain] = useState('')
-  const [pwMessage, setPwMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pwBusy, setPwBusy] = useState(false)
+  const [pinMessage, setPinMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [pinBusy, setPinBusy] = useState(false)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -24,14 +24,14 @@ export default function ProfileSheet({ account, onClose }: { account: Account; o
     else onClose()
   }
 
-  async function savePassword(e: React.FormEvent) {
+  async function savePin(e: React.FormEvent) {
     e.preventDefault()
-    if (password !== again) { setPwMessage({ ok: false, text: 'The two passwords are not the same.' }); return }
-    setPwBusy(true)
-    const msg = await account.changePassword(password)
-    setPwBusy(false)
-    if (msg) setPwMessage({ ok: false, text: msg })
-    else { setPwMessage({ ok: true, text: '✔ Password changed.' }); setPassword(''); setAgain('') }
+    if (pin !== again) { setPinMessage({ ok: false, text: 'The two PINs are not the same.' }); return }
+    setPinBusy(true)
+    const msg = await account.changePin(pin)
+    setPinBusy(false)
+    if (msg) setPinMessage({ ok: false, text: msg })
+    else { setPinMessage({ ok: true, text: '✔ PIN changed.' }); setPin(''); setAgain('') }
   }
 
   return (
@@ -52,15 +52,15 @@ export default function ProfileSheet({ account, onClose }: { account: Account; o
         </div>
       </form>
 
-      <form className="form pw" onSubmit={savePassword}>
-        <h3>🔒 <small>Change password</small></h3>
-        <input type="password" value={password} autoComplete="new-password" placeholder="New password (8+ characters)"
-          aria-label="New password" onChange={(e) => setPassword(e.target.value)} />
-        <input type="password" value={again} autoComplete="new-password" placeholder="Type it again"
-          aria-label="New password again" onChange={(e) => setAgain(e.target.value)} />
-        {pwMessage && <p role={pwMessage.ok ? 'status' : 'alert'} className={pwMessage.ok ? 'toast' : 'notice'}>{pwMessage.text}</p>}
+      <form className="form pw" onSubmit={savePin}>
+        <h3>🔒 <small>Change PIN</small></h3>
+        <input type="password" inputMode="numeric" maxLength={4} value={pin} autoComplete="new-password" placeholder="New PIN (4 digits)"
+          aria-label="New PIN" onChange={(e) => setPin(e.target.value)} />
+        <input type="password" inputMode="numeric" maxLength={4} value={again} autoComplete="new-password" placeholder="Type it again"
+          aria-label="New PIN again" onChange={(e) => setAgain(e.target.value)} />
+        {pinMessage && <p role={pinMessage.ok ? 'status' : 'alert'} className={pinMessage.ok ? 'toast' : 'notice'}>{pinMessage.text}</p>}
         <div className="btn-row">
-          <button type="submit" className="secondary" disabled={pwBusy || !password}>{pwBusy ? '…' : '🔒 Change password'}</button>
+          <button type="submit" className="secondary" disabled={pinBusy || !pin}>{pinBusy ? '…' : '🔒 Change PIN'}</button>
         </div>
       </form>
     </Sheet>

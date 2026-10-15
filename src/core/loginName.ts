@@ -7,6 +7,3 @@ export function toLoginName(text: string): string {
 }
 
 export const LOGIN_NAME_MIN = 3
-
-/** People who sign up with just a name get this address behind the scenes. It is never emailed. */
-export const placeholderEmail = (loginName: string) => `${loginName}@example.com`

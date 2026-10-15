@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
 import { LOGIN_NAME_MIN, toLoginName } from './loginName'
+import { isPin, pinToPassword } from './pin'
 import { supabase } from './supabase'
 
 export interface FamilyInfo {
@@ -19,7 +20,8 @@ export interface Account {
   /** The name they sign in with (lower case, dots between words). */
   username: string
   saveProfile: (name: string, loginName: string) => Promise<string>
-  changePassword: (password: string) => Promise<string>
+  /** Sets a new 4-digit PIN for the signed-in person. */
+  changePin: (pin: string) => Promise<string>
   family: FamilyInfo | null
   refresh: () => Promise<void>
 }
@@ -79,13 +81,13 @@ export function useAccount(): Account {
     return ''
   }, [session])
 
-  /** Sets a new password for the signed-in person. Returns an error message, or '' when it worked. */
-  const changePassword = useCallback(async (password: string) => {
+  /** Sets a new 4-digit PIN for the signed-in person. Returns an error message, or '' when it worked. */
+  const changePin = useCallback(async (pin: string) => {
     if (!supabase || !session) return 'Not signed in.'
-    if (password.length < 8) return 'The password needs at least 8 characters.'
-    const { error } = await supabase.auth.updateUser({ password })
+    if (!isPin(pin)) return 'The PIN must be exactly 4 digits.'
+    const { error } = await supabase.auth.updateUser({ password: pinToPassword(pin) })
     return error ? error.message : ''
   }, [session])
 
-  return { loading, session, isSuperAdmin, name, username, saveProfile, changePassword, family, refresh: () => load(session) }
+  return { loading, session, isSuperAdmin, name, username, saveProfile, changePin, family, refresh: () => load(session) }
 }

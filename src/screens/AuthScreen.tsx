@@ -1,80 +1,58 @@
 import { useState } from 'react'
-import { LOGIN_NAME_MIN, placeholderEmail, toLoginName } from '../core/loginName'
+import { toLoginName } from '../core/loginName'
+import { isPin, pinToPassword } from '../core/pin'
 import { supabase } from '../core/supabase'
 
-/** Sign in or create an account with a name and a password. (An email still works for sign-in.) */
+/** Sign in with a name and a 4-digit PIN given by the family admin. (An old email + password still works.) */
 export default function AuthScreen() {
-  const [mode, setMode] = useState<'in' | 'up'>('in')
   const [who, setWho] = useState('')
-  const [password, setPassword] = useState('')
+  const [secret, setSecret] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
-  const loginName = toLoginName(who)
+  const usingEmail = who.includes('@')
 
   async function signIn() {
     if (!supabase) return
     let email = who.trim()
-    if (!email.includes('@')) {
+    if (!usingEmail) {
       // turn the name into the account's email, then use the normal email + password sign-in
       const { data } = await supabase.rpc('login_email', { p_username: toLoginName(email) })
-      if (!data) return 'Wrong name or password.'
+      if (!data) return 'Wrong name or PIN.'
       email = data as string
     }
+    // a 4-digit PIN gets its fixed ending added; anything else (an older password) is used as typed
+    const password = isPin(secret) && !usingEmail ? pinToPassword(secret) : secret
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return error ? (error.message === 'Invalid login credentials' ? 'Wrong name or password.' : error.message) : ''
-  }
-
-  async function signUp() {
-    if (!supabase) return
-    if (loginName.length < LOGIN_NAME_MIN) return `Please type a name with at least ${LOGIN_NAME_MIN} letters or numbers.`
-    const { data: free } = await supabase.rpc('username_available', { p_username: loginName })
-    if (free === false) return 'Someone already uses that name. Add your surname or a number.'
-    const { data, error } = await supabase.auth.signUp({
-      email: placeholderEmail(loginName), password, options: { data: { name: who.trim(), username: loginName } },
-    })
-    if (error) return error.message
-    if (!data.session) return 'Account created, but sign-in is waiting for email confirmation. Ask the admin to switch "Confirm email" off in Supabase.'
-    return ''
+    return error ? (error.message === 'Invalid login credentials' ? 'Wrong name or PIN.' : error.message) : ''
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setMessage('')
-    const problem = mode === 'in' ? await signIn() : await signUp()
+    const problem = await signIn()
     setBusy(false)
     if (problem) setMessage(problem)
   }
 
   return (
     <section className="panel">
-      <h2>{mode === 'in' ? 'Welcome back' : 'Create your account'}</h2>
+      <h2>Welcome</h2>
       <form onSubmit={submit} className="form">
         <label>
-          {mode === 'in' ? '👤 Name' : '👤 Your name'}
-          <input value={who} onChange={(e) => setWho(e.target.value)} required maxLength={40} autoComplete="username"
-            placeholder={mode === 'in' ? 'Your name' : 'e.g. Zawed Khan'} />
+          👤 Name
+          <input value={who} onChange={(e) => setWho(e.target.value)} required maxLength={60} autoComplete="username" autoCapitalize="none" placeholder="Your name" />
         </label>
-        {mode === 'in' && <small className="hint">💡 Had an account before the name sign-in? Type your old email here once, then tap 👤 to set your name.</small>}
-        {mode === 'up' && <small className="hint">⚠️ Already have an account? Do not create a new one. Go back and sign in, or your expenses will not be there.</small>}
-        {mode === 'up' && loginName && <small className="hint">You will sign in with: <b>{loginName}</b></small>}
         <label>
-          🔑 Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-          />
+          🔑 {usingEmail ? 'Password' : 'PIN'}
+          <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} required
+            inputMode={usingEmail ? 'text' : 'numeric'} maxLength={usingEmail ? 72 : 4} autoComplete="current-password"
+            placeholder={usingEmail ? 'Password' : '4 digits'} />
         </label>
         {message && <p role="alert" className="notice">{message}</p>}
-        <button type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}</button>
-        <button type="button" className="secondary" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMessage('') }}>
-          {mode === 'in' ? 'I am new — create account' : 'I already have an account'}
-        </button>
+        <button type="submit" disabled={busy}>{busy ? 'Please wait…' : 'Sign in'}</button>
+        <small className="hint">Your name and PIN are given by the family admin.</small>
       </form>
     </section>
   )
