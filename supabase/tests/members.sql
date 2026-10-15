@@ -1,4 +1,4 @@
--- Run after stub, 0001, 0002, access.sql, 0004, login.sql and 0005. The Ansari family exists (owner = admin, wife, son).
+-- Run after stub, 0001, 0002, access.sql, 0004, login.sql, 0005 and 0006. The Ansari family exists (owner = admin, wife, son).
 \set ON_ERROR_STOP on
 reset role;
 create function pg_temp.check(label text, ok boolean) returns void language plpgsql as $$
@@ -86,5 +86,24 @@ reset role;
 select pg_temp.check('removing a member also removes their access', (select count(*) from public.tab_permissions where user_id = '00000000-0000-0000-0000-000000000004') = 0);
 select pg_temp.as_user(4);
 select pg_temp.check('a removed person sees nothing again', (select count(*) from public.expenses) = 0);
+reset role;
+-- ------------------------------------------------ 0006: members can see each other's names (and nothing more)
+select pg_temp.as_user(2);  -- wife (plain member): she can only see her own members row...
+select pg_temp.check('a member cannot read other people''s members rows (the reason names were blank)',
+  (select count(*) from public.members) = 1);
+select pg_temp.check('...but family_names() gives her the names of everyone in her family',
+  (select count(*) from public.family_names() where username in ('owner.new', 'wife', 'son')) = 3);
+select pg_temp.check('...including the admin who added the shared expenses',
+  (select display_name from public.family_names() where username = 'owner.new') = 'owner');
+select pg_temp.check('family_names() has no email column', not exists (
+  select 1 from information_schema.routines r join information_schema.parameters p on p.specific_name = r.specific_name
+  where r.routine_name = 'family_names' and p.parameter_name = 'email'));
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-000000000031', 'loner@example.com', '{"name":"Loner One"}');
+select pg_temp.as_user(31);  -- someone in no family
+select pg_temp.check('a person in no family sees only themselves', (select count(*) from public.family_names()) = 1);
+reset role;
+select pg_temp.as_user(4);  -- stranger was removed from the family earlier in this file
+select pg_temp.check('a removed person no longer sees the family names', (select count(*) from public.family_names()) = 1);
 reset role;
 \echo ALL MEMBER CHECKS PASSED
