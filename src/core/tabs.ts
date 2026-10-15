@@ -11,6 +11,8 @@ export interface TabModule {
   icon: string
   color: string
   blurb: string
+  /** Only the family admin sees this tab. */
+  adminOnly?: boolean
   render: (account: Account) => ReactNode
 }
 
