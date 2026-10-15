@@ -72,7 +72,8 @@ export function useExpenses(account: Account) {
       loadCats(),
       supabase.from('expense_budgets').select('category, monthly_amount').eq('family_id', fid),
       supabase.from('expense_recurring').select('*').eq('family_id', fid).order('next_on'),
-      supabase.from('profiles').select('id, display_name'),
+      // names of everyone in the family (migration 0006); older databases fall back to the person's own profile
+      supabase.rpc('family_names').then((r) => (r.error ? supabase!.from('profiles').select('id, display_name') : r)),
     ])
     if (e.error) { setMessage(OFFLINE); return }
     setMessage('')

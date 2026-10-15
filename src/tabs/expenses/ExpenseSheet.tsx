@@ -112,6 +112,9 @@ export default function ExpenseSheet({ data, expense, onClose }: { data: Expense
       {expense.note && <p>📝 {expense.note}</p>}
       {receipt && <a href={receipt} target="_blank" rel="noreferrer"><img className="receipt" src={receipt} alt="Receipt" /></a>}
       {error && <p role="alert" className="notice">{error}</p>}
+      {!data.canDelete(expense) && (
+        <p className="hint">🔒 {data.level < 2 ? 'You can only look at expenses.' : 'Only the person who added this, or the admin, can delete it.'}</p>
+      )}
       <div className="btn-row">
         {data.canDelete(expense) && <button className="secondary danger" onClick={remove} aria-label="Delete">🗑</button>}
         {canChange && <button onClick={() => setEditing(true)} aria-label="Edit">✏️ Edit</button>}
