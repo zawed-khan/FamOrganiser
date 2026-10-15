@@ -227,3 +227,6 @@ input[type='checkbox'] { min-height: 22px; width: 22px; }
 .cat-edit .chips { margin: 2px 0 2px 44px; }
 .budget-input { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-weight: 600; }
 .budget-input input { width: 7rem; text-align: right; }
+
+.form.pw { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
+.form.pw h3 { margin: 10px 0 0; }

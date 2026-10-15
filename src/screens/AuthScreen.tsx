@@ -56,6 +56,8 @@ export default function AuthScreen() {
           <input value={who} onChange={(e) => setWho(e.target.value)} required maxLength={40} autoComplete="username"
             placeholder={mode === 'in' ? 'Your name' : 'e.g. Zawed Khan'} />
         </label>
+        {mode === 'in' && <small className="hint">💡 Had an account before the name sign-in? Type your old email here once, then tap 👤 to set your name.</small>}
+        {mode === 'up' && <small className="hint">⚠️ Already have an account? Do not create a new one. Go back and sign in, or your expenses will not be there.</small>}
         {mode === 'up' && loginName && <small className="hint">You will sign in with: <b>{loginName}</b></small>}
         <label>
           🔑 Password
