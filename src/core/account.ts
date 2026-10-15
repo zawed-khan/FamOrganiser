@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
+import { LOGIN_NAME_MIN, toLoginName } from './loginName'
 import { supabase } from './supabase'
 
 export interface FamilyInfo {
@@ -15,7 +16,9 @@ export interface Account {
   isSuperAdmin: boolean
   /** The person's own name (what the app shows instead of the email). */
   name: string
-  setName: (name: string) => Promise<string>
+  /** The name they sign in with (lower case, dots between words). */
+  username: string
+  saveProfile: (name: string, loginName: string) => Promise<string>
   family: FamilyInfo | null
   refresh: () => Promise<void>
 }
@@ -26,29 +29,24 @@ export function useAccount(): Account {
   const [loading, setLoading] = useState(Boolean(supabase))
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [name, setNameState] = useState('')
+  const [username, setUsername] = useState('')
   const [family, setFamily] = useState<FamilyInfo | null>(null)
 
   const load = useCallback(async (s: Session | null) => {
     if (!supabase || !s) {
       setIsSuperAdmin(false)
       setNameState('')
+      setUsername('')
       setFamily(null)
       return
     }
     const [profile, membership] = await Promise.all([
-      supabase.from('profiles').select('is_super_admin, display_name').eq('id', s.user.id).maybeSingle(),
+      supabase.from('profiles').select('is_super_admin, display_name, username').eq('id', s.user.id).maybeSingle(),
       supabase.from('members').select('role, families(id, name, status)').eq('user_id', s.user.id).limit(1).maybeSingle(),
     ])
     setIsSuperAdmin(Boolean(profile.data?.is_super_admin))
-    // The database starts everyone with the first part of their email as a placeholder name.
-    // If they typed a name when signing up, use that instead (the first time they get in).
-    let shown: string = profile.data?.display_name ?? ''
-    const typed = String(s.user.user_metadata?.name ?? '').trim()
-    if (typed && (!shown || shown === (s.user.email ?? '').split('@')[0])) {
-      const { error } = await supabase.from('profiles').update({ display_name: typed }).eq('id', s.user.id)
-      if (!error) shown = typed
-    }
-    setNameState(shown)
+    setNameState(profile.data?.display_name ?? '')
+    setUsername(profile.data?.username ?? '')
     const f = membership.data?.families as unknown as Omit<FamilyInfo, 'role'> | null | undefined
     setFamily(f ? { ...f, role: membership.data!.role } : null)
   }, [])
@@ -66,16 +64,19 @@ export function useAccount(): Account {
     return () => sub.subscription.unsubscribe()
   }, [load])
 
-  /** Saves a new name. Returns an error message, or '' when it worked. */
-  const setName = useCallback(async (value: string) => {
+  /** Saves the name shown in the app and the name used to sign in. Returns an error message, or '' when it worked. */
+  const saveProfile = useCallback(async (value: string, loginValue: string) => {
     const n = value.trim()
+    const login = toLoginName(loginValue)
     if (!supabase || !session) return 'Not signed in.'
     if (!n) return 'Please type a name.'
-    const { error } = await supabase.from('profiles').update({ display_name: n }).eq('id', session.user.id)
-    if (error) return error.message
+    if (login.length < LOGIN_NAME_MIN) return `Login name needs at least ${LOGIN_NAME_MIN} letters or numbers.`
+    const { error } = await supabase.from('profiles').update({ display_name: n, username: login }).eq('id', session.user.id)
+    if (error) return error.code === '23505' ? 'Someone already uses that login name.' : error.message
     setNameState(n)
+    setUsername(login)
     return ''
   }, [session])
 
-  return { loading, session, isSuperAdmin, name, setName, family, refresh: () => load(session) }
+  return { loading, session, isSuperAdmin, name, username, saveProfile, family, refresh: () => load(session) }
 }
