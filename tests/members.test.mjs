@@ -1,8 +1,10 @@
+// Tests for netlify/functions/members.mjs. Kept OUT of the functions folder, because Netlify turns every file in
+// that folder into a function.
 // Run with:  npm run test:functions
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { handle, pinToPassword, placeholderEmail, toLoginName } from './members.mjs'
+import { handle, pinToPassword, placeholderEmail, toLoginName } from '../netlify/functions/members.mjs'
 
 const ENV = { VITE_SUPABASE_URL: 'http://x.test', VITE_SUPABASE_ANON_KEY: 'ANON', SUPABASE_SERVICE_ROLE_KEY: 'SERVICE' }
 const FAMILY = '22222222-2222-2222-2222-222222222222'
@@ -122,6 +124,6 @@ test('same rules as the app (src/core)', () => {
   assert.equal(toLoginName('  Zawed   Khan! '), 'zawed.khan')
   assert.equal(placeholderEmail('a.b'), 'a.b@example.com')
   assert.equal(pinToPassword('0042'), '0042-family-manager')
-  assert.match(readFileSync(new URL('../../src/core/pin.ts', import.meta.url), 'utf8'), /`\$\{pin\}-family-manager`/)
-  assert.match(readFileSync(new URL('../../src/core/loginName.ts', import.meta.url), 'utf8'), /\.replace\(\/\[\^a-z0-9\]\+\/g, '\.'\)\.replace\(\/\^\\\.\+\|\\\.\+\$\/g, ''\)/)
+  assert.match(readFileSync(new URL('../src/core/pin.ts', import.meta.url), 'utf8'), /`\$\{pin\}-family-manager`/)
+  assert.match(readFileSync(new URL('../src/core/loginName.ts', import.meta.url), 'utf8'), /\.replace\(\/\[\^a-z0-9\]\+\/g, '\.'\)\.replace\(\/\^\\\.\+\|\\\.\+\$\/g, ''\)/)
 })
