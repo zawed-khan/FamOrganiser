@@ -19,6 +19,7 @@ export interface Account {
   /** The name they sign in with (lower case, dots between words). */
   username: string
   saveProfile: (name: string, loginName: string) => Promise<string>
+  changePassword: (password: string) => Promise<string>
   family: FamilyInfo | null
   refresh: () => Promise<void>
 }
@@ -78,5 +79,13 @@ export function useAccount(): Account {
     return ''
   }, [session])
 
-  return { loading, session, isSuperAdmin, name, username, saveProfile, family, refresh: () => load(session) }
+  /** Sets a new password for the signed-in person. Returns an error message, or '' when it worked. */
+  const changePassword = useCallback(async (password: string) => {
+    if (!supabase || !session) return 'Not signed in.'
+    if (password.length < 8) return 'The password needs at least 8 characters.'
+    const { error } = await supabase.auth.updateUser({ password })
+    return error ? error.message : ''
+  }, [session])
+
+  return { loading, session, isSuperAdmin, name, username, saveProfile, changePassword, family, refresh: () => load(session) }
 }
