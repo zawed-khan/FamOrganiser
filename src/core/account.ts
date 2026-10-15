@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
+import { clearSavedFamilyData } from './localCache'
 import { LOGIN_NAME_MIN, toLoginName } from './loginName'
 import { isPin, pinToPassword } from './pin'
 import { supabase } from './supabase'
@@ -60,7 +61,8 @@ export function useAccount(): Account {
       setSession(data.session)
       load(data.session).finally(() => setLoading(false))
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'SIGNED_OUT') clearSavedFamilyData()
       setSession(s)
       load(s)
     })

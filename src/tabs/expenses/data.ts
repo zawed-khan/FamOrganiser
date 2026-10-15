@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Account } from '../../core/account'
+import { FAMILY_CACHE_PREFIX } from '../../core/localCache'
 import { supabase } from '../../core/supabase'
 import type { Budgets, Category, Expense, QueuedExpense, Recurring } from './types'
 import { dataUrlToBlob, nextDate, today } from './util'
 
-const QUEUE_KEY = 'fm.expenses.queue'
+/** Entries waiting to upload are kept per person. (Before this, one shared list was used.) */
+const LEGACY_QUEUE_KEY = 'fm.expenses.queue'
+const queueKey = (userId: string) => `fm.expenses.queue.${userId}`
 const RATE_KEY = 'fm.expenses.sarToInr'
 const receiptKey = (id: string) => `fm.expenses.receipt.${id}`
-const cacheKey = (fid: string, name: string) => `fm.exp.${fid}.${name}`
+/** The saved copy is per person too, so one person on a shared phone never reads another's (private entries). */
+const cacheKey = (userId: string, fid: string, name: string) => `${FAMILY_CACHE_PREFIX}${userId}.${fid}.${name}`
 const OFFLINE = 'You are offline. Showing what is saved on this phone.'
 
 function read<T>(key: string, fallback: T): T {
@@ -17,6 +21,19 @@ function write(key: string, value: string): boolean {
   try { localStorage.setItem(key, value); return true } catch { return false }
 }
 const writeJson = (key: string, value: unknown) => write(key, JSON.stringify(value))
+
+/** This person's waiting entries. Entries left in the old shared list by this person are moved over (others' stay put). */
+function loadQueue(userId: string): QueuedExpense[] {
+  const legacy = read<QueuedExpense[]>(LEGACY_QUEUE_KEY, [])
+  const mine = legacy.filter((e) => e.user_id === userId)
+  if (mine.length) {
+    writeJson(queueKey(userId), [...read<QueuedExpense[]>(queueKey(userId), []), ...mine])
+    const rest = legacy.filter((e) => e.user_id !== userId)
+    if (rest.length) writeJson(LEGACY_QUEUE_KEY, rest)
+    else { try { localStorage.removeItem(LEGACY_QUEUE_KEY) } catch { /* storage unavailable */ } }
+  }
+  return read<QueuedExpense[]>(queueKey(userId), [])
+}
 
 const numeric = <T extends { amount: number }>(r: T): T => ({ ...r, amount: Number(r.amount) })
 
@@ -35,17 +52,27 @@ export function useExpenses(account: Account) {
   const fid = family.id
   const userId = account.session!.user.id
   const isAdmin = family.role === 'admin'
+  const qKey = queueKey(userId)
 
-  const [level, setLevel] = useState<number>(isAdmin ? 3 : read(cacheKey(fid, 'level'), 0))
-  const [rows, setRows] = useState<Expense[]>(() => read(cacheKey(fid, 'rows'), []))
-  const [cats, setCats] = useState<Category[]>(() => read(cacheKey(fid, 'cats'), []))
-  const [budgets, setBudgets] = useState<Budgets>(() => read(cacheKey(fid, 'budgets'), {}))
+  const [level, setLevel] = useState<number>(isAdmin ? 3 : read(cacheKey(userId, fid, 'level'), 0))
+  const [rows, setRows] = useState<Expense[]>(() => read(cacheKey(userId, fid, 'rows'), []))
+  const [cats, setCats] = useState<Category[]>(() => read(cacheKey(userId, fid, 'cats'), []))
+  const [budgets, setBudgets] = useState<Budgets>(() => read(cacheKey(userId, fid, 'budgets'), {}))
   const [recurring, setRecurring] = useState<Recurring[]>([])
-  const [names, setNames] = useState<Record<string, string>>(() => read(cacheKey(fid, 'names'), {}))
-  const [queue, setQueue] = useState<QueuedExpense[]>(() => read(QUEUE_KEY, []))
+  const [names, setNames] = useState<Record<string, string>>(() => read(cacheKey(userId, fid, 'names'), {}))
+  const [queue, setQueue] = useState<QueuedExpense[]>(() => loadQueue(userId))
   const [rate, setRateState] = useState<number>(() => Number(read<string>(RATE_KEY, '')) || 0)
   const [message, setMessage] = useState('')
   const syncing = useRef(false)
+  // a copy is only saved while this screen is open, so a request that finishes after sign-out cannot bring old data back
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+  const keep = useCallback((name: string, value: unknown) => {
+    if (alive.current) writeJson(cacheKey(userId, fid, name), value)
+  }, [userId, fid])
 
   const setRate = useCallback((v: number) => {
     setRateState(v)
@@ -61,7 +88,7 @@ export function useExpenses(account: Account) {
       if (error) { setMessage(OFFLINE); return }
       lvl = { view: 1, edit: 2, full: 3 }[data?.level as 'view'] ?? 0
       setLevel(lvl)
-      writeJson(cacheKey(fid, 'level'), lvl)
+      keep('level', lvl)
     }
     if (lvl < 1) return
 
@@ -79,7 +106,7 @@ export function useExpenses(account: Account) {
     setMessage('')
     const list = (e.data ?? []).map(numeric) as Expense[]
     setRows(list)
-    writeJson(cacheKey(fid, 'rows'), list)
+    keep('rows', list)
 
     let catList = (c.data ?? []) as Category[]
     if (!c.error && catList.length === 0 && lvl >= 2) {
@@ -87,21 +114,21 @@ export function useExpenses(account: Account) {
       await supabase.rpc('seed_expense_categories', { p_family: fid })
       catList = ((await loadCats()).data ?? []) as Category[]
     }
-    if (!c.error) { setCats(catList); writeJson(cacheKey(fid, 'cats'), catList) }
+    if (!c.error) { setCats(catList); keep('cats', catList) }
 
     if (!b.error) {
       const map: Budgets = {}
       for (const x of b.data ?? []) map[x.category] = Number(x.monthly_amount)
       setBudgets(map)
-      writeJson(cacheKey(fid, 'budgets'), map)
+      keep('budgets', map)
     }
     if (!r.error) setRecurring((r.data ?? []).map(numeric) as Recurring[])
     if (!p.error) {
       const map = Object.fromEntries((p.data ?? []).map((x) => [x.id, x.display_name || 'Family member']))
       setNames(map)
-      writeJson(cacheKey(fid, 'names'), map)
+      keep('names', map)
     }
-  }, [fid, userId, isAdmin])
+  }, [fid, userId, isAdmin, keep])
 
   /** Creates the expenses that repeating entries have come due for (only your own; safe if two phones open at once). */
   const runRecurring = useCallback(async () => {
@@ -131,7 +158,8 @@ export function useExpenses(account: Account) {
     syncing.current = true
     try {
       const left: QueuedExpense[] = []
-      for (const e of read<QueuedExpense[]>(QUEUE_KEY, [])) {
+      const sent: Expense[] = []
+      for (const e of read<QueuedExpense[]>(qKey, [])) {
         const { repeat, ...row } = e
         const photo = localStorage.getItem(receiptKey(e.id))
         let path = row.receipt_path
@@ -152,13 +180,16 @@ export function useExpenses(account: Account) {
           })
         }
         try { localStorage.removeItem(receiptKey(e.id)) } catch { /* storage unavailable */ }
+        sent.push({ ...row, subcategory: row.subcategory ?? '', receipt_path: path })
       }
-      writeJson(QUEUE_KEY, left)
+      writeJson(qKey, left)
       setQueue(left)
+      // keep what was just uploaded on screen until the full list has been fetched again
+      if (sent.length) setRows((r) => [...sent, ...r.filter((x) => !sent.some((s) => s.id === x.id))])
       await reload()
       if ((await runRecurring()) > 0) await reload()
     } finally { syncing.current = false }
-  }, [reload, runRecurring])
+  }, [reload, runRecurring, qKey])
 
   useEffect(() => {
     sync()
@@ -171,8 +202,8 @@ export function useExpenses(account: Account) {
   async function addExpense(entry: Omit<QueuedExpense, 'id' | 'family_id' | 'user_id' | 'receipt_path'>, photo?: string) {
     const e: QueuedExpense = { ...entry, id: crypto.randomUUID(), family_id: fid, user_id: userId, receipt_path: null }
     if (photo && !write(receiptKey(e.id), photo)) return { ok: false, text: 'No room on this phone for the photo. Save without it.' }
-    const q = [...read<QueuedExpense[]>(QUEUE_KEY, []), e]
-    if (!writeJson(QUEUE_KEY, q)) {
+    const q = [...read<QueuedExpense[]>(qKey, []), e]
+    if (!writeJson(qKey, q)) {
       try { localStorage.removeItem(receiptKey(e.id)) } catch { /* storage unavailable */ }
       return { ok: false, text: 'No room on this phone to save. Connect to the internet and try again.' }
     }
@@ -217,8 +248,8 @@ export function useExpenses(account: Account) {
   }
 
   function removeQueued(id: string) {
-    const q = read<QueuedExpense[]>(QUEUE_KEY, []).filter((x) => x.id !== id)
-    writeJson(QUEUE_KEY, q)
+    const q = read<QueuedExpense[]>(qKey, []).filter((x) => x.id !== id)
+    writeJson(qKey, q)
     setQueue(q)
     try { localStorage.removeItem(receiptKey(id)) } catch { /* storage unavailable */ }
   }
