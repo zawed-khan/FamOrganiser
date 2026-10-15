@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ExpensesData } from './data'
 import type { Category } from './types'
-import { Sheet } from './ui'
+import { Sheet } from '../../core/Sheet'
 
 const ICONS = ['🍔', '🍕', '☕', '🛒', '🥦', '🍎', '🥩', '🚗', '⛽', '🚕', '🚌', '✈️', '🧾', '💡', '💧', '📱', '🌐', '🏠', '🔧', '🛋️',
   '🎒', '📚', '💊', '🩺', '🦷', '🛍️', '👕', '💻', '🎉', '🎬', '🎮', '🎁', '🐶', '👶', '💇', '🏋️', '🕌', '🤲', '💰', '🏦', '📦', '🏷️']
