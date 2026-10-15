@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:functions": "node --test netlify/functions/members.test.mjs"
+    "test:functions": "node --test tests/members.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

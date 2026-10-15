@@ -13,7 +13,7 @@ export const config = { path: '/api/members' }
 
 const ROLES = ['adult', 'teen', 'child', 'guest']
 
-// Same rules as src/core/loginName.ts and src/core/pin.ts (checked against each other in members.test.mjs)
+// Same rules as src/core/loginName.ts and src/core/pin.ts (checked against each other in tests/members.test.mjs)
 export const toLoginName = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '')
 export const placeholderEmail = (loginName) => `${loginName}@example.com`
 export const pinToPassword = (pin) => `${pin}-family-manager`
