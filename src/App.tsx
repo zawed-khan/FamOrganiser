@@ -5,6 +5,7 @@ import './tabs'
 import { useAccount } from './core/account'
 import { isConfigured, supabase } from './core/supabase'
 import AuthScreen from './screens/AuthScreen'
+import ProfileSheet from './screens/ProfileSheet'
 import { ApproveFamilies, CreateFamily, WaitingForApproval } from './screens/FamilyScreens'
 
 function Modal({ title, text, children }: { title: string; text: string; children: React.ReactNode }) {
@@ -21,6 +22,7 @@ function Modal({ title, text, children }: { title: string; text: string; childre
 
 export default function App() {
   const [openId, setOpenId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
   const { canInstall, install, dismiss } = useInstallPrompt()
   const { needsUpdate, applyUpdate, later } = useAppUpdate()
   const account = useAccount()
@@ -42,7 +44,10 @@ export default function App() {
           </>
         )}
         {account.session && (
-          <button className="icon-btn" onClick={() => supabase?.auth.signOut()} aria-label="Sign out">🚪</button>
+          <>
+            <button className="who-btn" onClick={() => setEditingName(true)} aria-label="Change your name">👤 {account.name || 'Add name'}</button>
+            <button className="icon-btn" onClick={() => supabase?.auth.signOut()} aria-label="Sign out">🚪</button>
+          </>
         )}
       </header>
 
@@ -57,7 +62,6 @@ export default function App() {
         <AuthScreen />
       ) : (
         <>
-          {!current && <p className="who">👤 {account.session.user.email}</p>}
           {account.isSuperAdmin && <ApproveFamilies account={account} />}
           {!family ? (
             <CreateFamily onDone={account.refresh} />
@@ -78,6 +82,8 @@ export default function App() {
           )}
         </>
       )}
+
+      {editingName && <ProfileSheet account={account} onClose={() => setEditingName(false)} />}
 
       {canInstall && (
         <Modal title="Install Family Manager" text="Add it to your home screen so you can open it like any other app.">

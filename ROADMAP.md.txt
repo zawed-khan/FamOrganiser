@@ -1,4 +1,4 @@
-# Family Manager — Roadmap (updated 10 Oct 2026)
+# Family Manager — Roadmap (updated 15 Oct 2026)
 
 ## Context
 "Family Manager" is a free, installable PWA with independent tabs (mini-apps) for a family's money, documents, places, study and more. Admin-controlled access, offline use, voice input and AI help (quiz creation first). Built for non-technical users, used mainly **on a phone, one-handed**: compact, icon-led, colourful. Text size is a setting (Small by default, Normal, Large). Guided mode and reminders later. Android phones + Windows laptops, English only. 20+ users scaling to hundreds, multi-family (owner approves each family; owner is super-admin).
@@ -35,6 +35,7 @@ Done:
 - `supabase/migrations/0001_core.sql`: profiles, families, members, tab_permissions, activity_log, expenses, row-level security, `create_family` function. 17 SQL access checks pass (`supabase/tests/`), run on plain Postgres with a stand-in for Supabase auth, not yet on real Supabase.
 - Email/password sign-in, create-family and super-admin approval screens (build and lint pass; not tested against a real project).
 - **Expenses mobile redesign (built 10 Oct):** bottom bar, Day/Week/Month, ring chart and category bars with sub-category drill-down, per-day chart, who-spent, keypad add, own categories + sub-categories with starter set, search and category filter, edit/delete, monthly budgets (overall + per category), repeating expenses (daily/weekly/monthly, created when the app opens), receipt photo (compressed on the phone, private Supabase Storage bucket, works offline), CSV export, text size setting, offline add with later sync.
+- **Follow-up (15 Oct):** the app shows each person's **name** instead of their email (name field on sign-up; tap 👤 name in the header to change it). Every expense row has its own 🗑 delete button (with a confirmation) as well as the one in the detail screen. Admin / full access can delete any entry; others can delete their own.
 - `supabase/migrations/0002_expenses_mobile.sql` (categories, budgets, repeating, `seed_expense_categories`) with 19 more SQL access checks (36 in total pass on plain Postgres). `0003_receipts_storage.sql` (private `receipts` bucket and rules) was checked only against a stand-in for Supabase Storage.
 - The new screens were driven end to end in a headless phone-sized browser against a **mock** backend (29 checks: add, offline add and sync, new category/sub-category, receipt upload, edit, delete, search, periods, reports, budgets, rename, CSV, text size). **Not yet tried on a real phone or a real Supabase project.**
 
@@ -62,6 +63,7 @@ Done:
 - Owner walk-through as tester.
 
 ## Open items
+- Sign-in itself still uses email + password; the name is only what the app shows. Signing in by name instead would need a decision (names can repeat, so it would need a unique username) and is not built.
 - Owner to try the Expenses redesign on the phone and send feedback; more screens/changes follow from that.
 - Repeating expenses are created when the person who made them opens the app (no server job on the free tier), so a missed day appears the next time they open it.
 - Private expenses: the receipt photo is protected by the unguessable file name and the hidden expense row, not by a separate rule.

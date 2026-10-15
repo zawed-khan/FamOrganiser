@@ -205,6 +205,16 @@ export function useExpenses(account: Account) {
     return ''
   }
 
+  /** Can this person delete this entry? Everyone can drop their own waiting entries; saved ones follow the Expenses rules. */
+  const canDelete = (e: Expense) => queue.some((q) => q.id === e.id) || (level >= 2 && (level >= 3 || e.user_id === userId))
+
+  /** Deletes one entry, whether it is saved or still waiting to upload. Returns an error message, or ''. */
+  async function deleteExpense(e: Expense) {
+    if (queue.some((q) => q.id === e.id)) { removeQueued(e.id); return '' }
+    const msg = await removeExpense(e)
+    return msg && !navigator.onLine ? 'Connect to the internet to delete this.' : msg
+  }
+
   function removeQueued(id: string) {
     const q = read<QueuedExpense[]>(QUEUE_KEY, []).filter((x) => x.id !== id)
     writeJson(QUEUE_KEY, q)
@@ -280,7 +290,7 @@ export function useExpenses(account: Account) {
     userId, isAdmin, level, canAdd: level >= 2, canManage: level >= 3,
     all, queue, cats, budgets, recurring, names, rate, message,
     setMessage, setRate, sync,
-    addExpense, updateExpense, removeExpense, removeQueued,
+    addExpense, updateExpense, deleteExpense, canDelete,
     addCategory, updateCategory, removeCategory, setBudget, setRecurringActive, removeRecurring,
   }
 }

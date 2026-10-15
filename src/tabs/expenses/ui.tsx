@@ -1,25 +1,6 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Mode, Period } from './types'
 import { periodLabel, shift, today } from './util'
-
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
-          <strong>{title}</strong>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
 
 const MODES: { mode: Mode; label: string }[] = [{ mode: 'day', label: 'Day' }, { mode: 'week', label: 'Week' }, { mode: 'month', label: 'Month' }]
 

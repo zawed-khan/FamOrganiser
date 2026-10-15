@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { receiptUrl, type ExpensesData } from './data'
 import type { Currency, QueuedExpense } from './types'
-import { Sheet } from './ui'
+import { Sheet } from '../../core/Sheet'
 import { categoryLook, compressImage, dayLabel, money } from './util'
 
 function readLocalPhoto(id: string) {
@@ -55,9 +55,8 @@ export default function ExpenseSheet({ data, expense, onClose }: { data: Expense
 
   async function remove() {
     if (!window.confirm('Delete this expense?')) return
-    if (waiting) { data.removeQueued(expense.id); onClose(); return }
-    const msg = await data.removeExpense(expense)
-    if (msg) setError(navigator.onLine ? msg : 'Connect to the internet to delete this.')
+    const msg = await data.deleteExpense(expense)
+    if (msg) setError(msg)
     else onClose()
   }
 
@@ -114,7 +113,7 @@ export default function ExpenseSheet({ data, expense, onClose }: { data: Expense
       {receipt && <a href={receipt} target="_blank" rel="noreferrer"><img className="receipt" src={receipt} alt="Receipt" /></a>}
       {error && <p role="alert" className="notice">{error}</p>}
       <div className="btn-row">
-        {(canChange || waiting) && <button className="secondary danger" onClick={remove} aria-label="Delete">🗑</button>}
+        {data.canDelete(expense) && <button className="secondary danger" onClick={remove} aria-label="Delete">🗑</button>}
         {canChange && <button onClick={() => setEditing(true)} aria-label="Edit">✏️ Edit</button>}
       </div>
     </Sheet>

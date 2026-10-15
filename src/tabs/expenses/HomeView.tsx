@@ -11,6 +11,12 @@ export default function HomeView({ data, period, onPeriod }: { data: ExpensesDat
   const [searching, setSearching] = useState(false)
   const [only, setOnly] = useState('')
   const [open, setOpen] = useState<QueuedExpense | null>(null)
+  const [error, setError] = useState('')
+
+  async function remove(e: QueuedExpense) {
+    if (!window.confirm(`Delete ${money(e.amount, e.currency)} · ${e.subcategory || e.category}?`)) return
+    setError(await data.deleteExpense(e))
+  }
 
   const { from, to } = range(period)
   const q = query.trim().toLowerCase()
@@ -89,6 +95,7 @@ export default function HomeView({ data, period, onPeriod }: { data: ExpensesDat
         <p className="notice">⏳ {data.queue.length} waiting to upload <button className="mini" onClick={data.sync} aria-label="Upload now">⬆</button></p>
       )}
 
+      {error && <p role="alert" className="notice">{error}</p>}
       {days.length === 0 && <p className="hint empty">🧾 Nothing here. Tap ＋ to add.</p>}
       {days.map(([day, list]) => (
         <section key={day} className="day">
@@ -97,18 +104,21 @@ export default function HomeView({ data, period, onPeriod }: { data: ExpensesDat
             const look = categoryLook(data.cats, e.category)
             const waiting = data.queue.some((x) => x.id === e.id)
             return (
-              <button key={e.id} className="item" onClick={() => setOpen(e)}>
-                <span className="dot" style={{ background: `${look.color}22`, color: look.color }}>{look.icon}</span>
-                <span className="item-main">
-                  <b>{e.subcategory || e.category}</b>
-                  <small>
-                    {e.subcategory ? `${e.category} · ` : ''}{data.names[e.user_id] ?? '👤'}{e.note ? ` · ${e.note}` : ''}
-                  </small>
-                </span>
-                <span className="item-amount">
-                  {e.is_private && '🔒 '}{e.receipt_path || waiting ? '📎 ' : ''}{waiting && '⏳ '}{money(e.amount, e.currency)}
-                </span>
-              </button>
+              <div key={e.id} className="item-row">
+                <button className="item" onClick={() => setOpen(e)}>
+                  <span className="dot" style={{ background: `${look.color}22`, color: look.color }}>{look.icon}</span>
+                  <span className="item-main">
+                    <b>{e.subcategory || e.category}</b>
+                    <small>
+                      {e.subcategory ? `${e.category} · ` : ''}{data.names[e.user_id] ?? '👤'}{e.note ? ` · ${e.note}` : ''}
+                    </small>
+                  </span>
+                  <span className="item-amount">
+                    {e.is_private && '🔒 '}{e.receipt_path || waiting ? '📎 ' : ''}{waiting && '⏳ '}{money(e.amount, e.currency)}
+                  </span>
+                </button>
+                {data.canDelete(e) && <button className="item-del" onClick={() => remove(e)} aria-label={`Delete ${e.subcategory || e.category} ${money(e.amount, e.currency)}`}>🗑</button>}
+              </div>
             )
           })}
         </section>
